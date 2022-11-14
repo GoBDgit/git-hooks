@@ -1,0 +1,19 @@
+#!C:/Program\ Files/Git/bin/sh.exe
+for file in `git diff --cached --name-only --diff-filter=ACMR`
+do
+    if [[ $file != *.tsq ]] && [[ $file != *.tsr ]]
+    then
+        openssl ts -query -data $file -no_nonce -sha512 -cert -out $file.tsq
+        qfilename="$file.tsq"
+        qfile="@$qfilename"
+        curl --cacert ../../config/isrgrootx1.pem -H "Content-Type: application/timestamp-query" --data-binary $qfile https://freetsa.org/tsr > $file.tsr
+        git add $qfilename
+        git add $file.tsr
+        openssl ts -verify -in $file.tsr -queryfile $qfilename -CAfile ../../config/tsa_cacert.pem -untrusted ../../config/tsa.crt
+        if [[$? != 0]] 
+        then
+            echo "Could not verify timestamp of: $file $?"
+            exit 1
+        fi
+    fi
+done
